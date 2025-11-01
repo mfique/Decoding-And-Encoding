@@ -60,11 +60,12 @@ def validate_files():
     if missing:
         print(f"[WARNING] Missing JAR files: {', '.join(missing)}")
         print("Attempting to copy from PDF417 directory...")
-        pdf417_dir = os.path.join(os.path.dirname(os.path.dirname(image_path)), "PDF417")
+        # Get PDF417 directory (parent directory + PDF417)
+        current_dir = os.getcwd()
+        pdf417_dir = os.path.join(os.path.dirname(current_dir), "PDF417")
         for jar in missing:
             src = os.path.join(pdf417_dir, jar)
             if os.path.exists(src):
-                import shutil
                 shutil.copy(src, jar)
                 print(f"  Copied {jar}")
 
@@ -114,9 +115,22 @@ def parse_zxing_output(output):
             continue
         if "No barcode found" in line:
             return None
-        if decoded_text is None:
+        # Skip lines that are metadata (like "Raw result:", "Parsed result:", etc.)
+        if ":" in line and not line.split(":")[1].strip():
+            continue
+        if line.startswith("Raw result:") or line.startswith("Parsed result:"):
+            # Get the text after the colon
+            parts = line.split(":", 1)
+            if len(parts) > 1:
+                decoded_text = parts[1].strip()
+                if decoded_text:
+                    break
+            continue
+        # If it's not a metadata line and has content, use it
+        if decoded_text is None and ":" not in line:
             decoded_text = line
-            break
+            if decoded_text:
+                break
     
     return decoded_text
 
